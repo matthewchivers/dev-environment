@@ -2,43 +2,69 @@
 
 echo "Configuring shell profile..."
 
-SHELL_NAME=""
+# Detect the shell and set the shell configuration file
+SHELL_NAME=$(basename "$SHELL")
 
-# Work out what shell is being used.
-if [ -n "$BASH_VERSION" ]; then
-    SHELL_NAME="bash"
-elif [ -n "$ZSH_VERSION" ]; then
-    SHELL_NAME="zsh"
-else
-    echo "Shell not supported. Please use Bash or Zsh."
-    exit 1
-fi
+case "$SHELL_NAME" in
+    bash)
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            SHELL_FILE="$HOME/.bash_profile"
+        else
+            SHELL_FILE="$HOME/.bashrc"
+        fi
+        ;;
+    zsh)
+        SHELL_FILE="$HOME/.zshrc"
+        ;;
+    *)
+        echo "Unsupported shell: $SHELL_NAME"
+        exit 1
+        ;;
+esac
 
-SHELL_FILE="$HOME/.$(echo $SHELL_NAME)rc"
+echo "Using shell configuration file: $SHELL_FILE"
 
-aliases=("k='kubectl'"
-         "kgp='kubectl get pods'"
-         "kctx='kubectl config current-context'"
-         "gs='git status'"
-         "gc='git commit'"
-         "gp='git push'"
-         "gd='git diff'"
-         "gco='git checkout'"
-         "gcb='git checkout -b'"
-         "gcm='git checkout master'"
-         "gpl='git pull'"
-         "gpr='git pull --rebase'"
-         "gprc='git pull --rebase --autostash'"
-         "gfp='git fetch --all; git pull'"
-         )
-
-for alias in "${aliases[@]}"; do
-    if ! grep -Fxq "alias $alias" "$SHELL_FILE"; then
-        echo "alias $alias" >> "$SHELL_FILE"
+# Function to add an alias if it doesn't already exist
+add_alias() {
+    local name="$1"
+    local command="$2"
+    if ! grep -q "^alias $name=" "$SHELL_FILE"; then
+        echo "alias $name='$command'" >> "$SHELL_FILE"
+        echo "Added alias: $name"
+    else
+        echo "Alias $name already exists"
     fi
+}
+
+# Define your aliases in an associative array
+declare -A aliases=(
+    ["k"]="kubectl"
+    ["kgp"]="kubectl get pods"
+    ["kctx"]="kubectl config current-context"
+    ["gs"]="git status"
+    ["gc"]="git commit"
+    ["gp"]="git push"
+    ["gd"]="git diff"
+    ["gco"]="git checkout"
+    ["gcb"]="git checkout -b"
+    ["gcm"]="git checkout master"
+    ["gpl"]="git pull"
+    ["gpr"]="git pull --rebase"
+    ["gprc"]="git pull --rebase --autostash"
+    ["gfp"]="git fetch --all; git pull"
+)
+
+# Iterate over the aliases and add them
+for name in "${!aliases[@]}"; do
+    add_alias "$name" "${aliases[$name]}"
 done
 
-# Source the updated shell profile.
-source "$SHELL_FILE"
+# Source the updated shell profile if running interactively
+if [[ $- == *i* ]]; then
+    source "$SHELL_FILE"
+    echo "Shell configuration reloaded."
+else
+    echo "Please restart your terminal or run 'source $SHELL_FILE' to apply changes."
+fi
 
 echo "Development environment setup complete."
